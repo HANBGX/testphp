@@ -33,6 +33,8 @@ class api
                 return "select * from json where id = $param";
             case 'checkExist':
                 return "select TABLE_NAME  from information_schema.TABLES where TABLE_SCHEMA ='geodb' and TABLE_NAME = '$param'";
+            case'getAll':
+                return "select * from json";
             default:
                 return "";
         }
@@ -60,23 +62,54 @@ class api
         return $this->conn()->query($this->getSQL('get', $id));
     }
 
+    public function getAll()
+    {
+        return $this->conn()->query($this->getSQL('getAll', null));
+    }
+
     public function checkExist($tableName)
     {
         $this->conn()->query($this->getSQL('checkExist', $tableName));
     }
+
+    public function success($result)
+    {
+        $arr = [];
+        while ($row = mysqli_fetch_array($result, MYSQLI_ASSOC)) {
+            $arr[] = $row;
+        }
+        return json_encode(array('code' => 200, 'data' => $arr));
+    }
+
+    public function error()
+    {
+        return json_encode(array('code' => 444, 'msg' => 'error'));
+    }
 }
 
-$app->get('/', function ($request, $response, $args) {
-//    $param = (object)array(
-//        'Lat' => $args->lat,
-//        'Lng' => $args->lng,
-//        'Name' => "asdsadsa",
-//        'Description' => "this is a test latlng"
-//    );
-//    $result = (new api)->insert($param);
+/**
+ * 插入经纬度信息
+ */
+$app->get('/insert/{Name}/{lat}/{lng}/{Description}', function ($request, $response, $args) {
+    $param = (object)array(
+        'Name' => $args['Name'],
+        'Lat' => $args['lat'],
+        'Lng' => $args['lng'],
+        'Description' => $args['Description']
+    );
+    $result = (new api)->insert($param);
 
-    return $response->withStatus(200)->write('han');
+    return $response->withStatus(200)->write($result);
+});
+$app->get('/get', function ($request, $response, $args) {
+    $response->withHeader('Content-Type', 'application/json');
+    $api = (new api);
+    $result = $api->getAll();
+    if (!$result) {
+        return $response->getBody()->write($api->error());
+    } else {
+        return $response->getBody()->write($api->success($result));
+    }
 });
 
-// Run application
 $app->run();
